@@ -6,19 +6,24 @@ from sklearn.linear_model import LinearRegression
 import numpy as np
 import datetime
 
-st.set_page_config(page_title="🔋 Per Capita Electricity Consumption", layout="wide")
+# ------------------------------------
+# 🎛️ App Setup
+# ------------------------------------
+st.set_page_config(page_title="🔋 Electricity Dashboard", layout="wide")
 
-# Dashboard Title and Summary
-st.title("🔌 Per Capita Electricity Consumption Dashboard (India)")
+st.title("🔌 Per Capita Electricity Consumption & External Factors (India)")
 st.markdown("""
-This dashboard visualizes **per capita electricity consumption trends** across Indian states based on live data from the [CEA API](https://cea.nic.in/api/percapitalConsumtion.php). 
-It also overlays **weather** and **holiday** information to help explore their potential impact on electricity usage. You can upload your own dataset for detailed custom forecasts.
+A research dashboard for analyzing **state-wise electricity consumption trends** in India, enriched with **weather** and **holiday** insights to simulate external influence on demand patterns.
+
+**Data Sources:**
+- Consumption: [CEA API](https://cea.nic.in/api/percapitalConsumtion.php)
+- Weather: [Visual Crossing](https://www.visualcrossing.com/)
+- Holidays: Integrated calendar
 """)
 
-# Upload File Option
-uploaded_file = st.file_uploader("📁 Upload your electricity consumption CSV file (optional)", type=["csv"])
-
-# Fetch CEA API data
+# ------------------------------------
+# 📥 Fetch Live CEA Data
+# ------------------------------------
 @st.cache_data
 def fetch_cea_data():
     url = "https://cea.nic.in/api/percapitalConsumtion.php"
@@ -26,38 +31,51 @@ def fetch_cea_data():
     if response.status_code == 200:
         return pd.DataFrame(response.json())
     else:
-        st.error("Failed to fetch data from API.")
+        st.error("Failed to fetch CEA data.")
         return pd.DataFrame()
 
-# Sidebar Section
+df = fetch_cea_data()
+df["value"] = pd.to_numeric(df["value"], errors="coerce")
+df = df.dropna()
+df = df.rename(columns={"value": "PerCapitaConsumption"})
+
+# Valid States
+def get_valid_states(df):
+    invalid_entries = {"N R", "W R", "S R", "E R", "N E R", "All India", "Jammu & Kashmir*", "Uttarakhand*"}
+    return sorted({s.strip() for s in df["State"].unique() if s.strip() not in invalid_entries})
+
+# ------------------------------------
+# 📂 Sidebar – Data Controls
+# ------------------------------------
 with st.sidebar:
-    st.markdown("## 🔧 Filter Options")
-    
-    df = fetch_cea_data()
-    df["value"] = pd.to_numeric(df["value"], errors="coerce")
-    df = df.dropna()
-    df = df.rename(columns={"value": "PerCapitaConsumption"})
+    st.header("📂 Data Controls")
 
-    def get_valid_states(df):
-        invalid_entries = {
-            "N R", "W R", "S R", "E R", "N E R", "All India",
-            "Jammu & Kashmir*", "Uttarakhand*"
-        }
-        return sorted({state.strip() for state in df["State"].unique() if state.strip() not in invalid_entries})
-
-    years = sorted(df["Year"].unique())
     states = get_valid_states(df)
+    years = sorted(df["Year"].unique())
 
-    selected_states = st.multiselect("📍 Select States", states, default=["Delhi", "Rajasthan"])
-    selected_years = st.slider("📅 Select Year Range", min_value=int(years[0][:4]), max_value=int(years[-1][:4]), value=(2010, 2021))
+    selected_states = st.multiselect("🗺️ Select States", states, default=["Delhi", "Rajasthan"])
+    selected_years = st.slider("📅 Year Range", min_value=int(years[0][:4]), max_value=int(years[-1][:4]), value=(2010, 2021))
 
-# Filter and visualize CEA data
+    st.markdown("---")
+    st.subheader("🌦️ External Factors")
+
+    start_date = st.date_input("Start Date", datetime.date(2021, 1, 1))
+    end_date = st.date_input("End Date", datetime.date(2021, 1, 7))
+
+    selected_weather_state = st.selectbox("Select State for Weather", selected_states)
+
+# ------------------------------------
+# 🔍 Filter Data
+# ------------------------------------
 df["YearNum"] = df["Year"].str[:4].astype(int)
 filtered_df = df[(df["YearNum"] >= selected_years[0]) & (df["YearNum"] <= selected_years[1])]
 filtered_df = filtered_df[filtered_df["State"].isin(selected_states)]
 
-# Line chart
-st.subheader("📈 Per Capita Electricity Consumption Over Time")
+# ------------------------------------
+# 📈 Consumption Over Time
+# ------------------------------------
+st.subheader("📈 Per Capita Electricity Consumption Trends")
+
 fig, ax = plt.subplots(figsize=(10, 5))
 for state in selected_states:
     state_data = filtered_df[filtered_df["State"] == state]
@@ -65,12 +83,16 @@ for state in selected_states:
 
 ax.set_xlabel("Year")
 ax.set_ylabel("Per Capita Consumption (kWh)")
+ax.set_title("Per Capita Electricity Consumption Over Time")
 ax.legend()
 ax.grid(True)
 st.pyplot(fig)
 
-# Forecasting
-st.subheader("📉 Forecast Next 5 Years (Linear Trend)")
+# ------------------------------------
+# 🔮 Forecast Next 5 Years
+# ------------------------------------
+st.subheader("📉 Forecast for Next 5 Years (Linear Trend)")
+
 future_years = np.array(range(selected_years[1] + 1, selected_years[1] + 6)).reshape(-1, 1)
 for state in selected_states:
     state_df = filtered_df[filtered_df["State"] == state]
@@ -84,54 +106,67 @@ for state in selected_states:
 
         forecast_df = pd.DataFrame({
             "Year": future_years.flatten(),
-            "Forecasted Consumption": preds
+            "Forecasted Consumption (kWh)": preds
         })
 
-        st.markdown(f"**{state}**:")
-        st.dataframe(forecast_df.set_index("Year").style.format("{:.2f} kWh"))
+        st.markdown(f"**🔮 {state}**")
+        st.dataframe(forecast_df.set_index("Year").style.format("{:.2f}"))
     else:
-        st.warning(f"Not enough data for forecasting {state}")
+        st.warning(f"Not enough data for forecasting **{state}**.")
 
-# Holiday Visualization
-st.subheader("📅 Indian Holidays Affecting Consumption")
-holidays = pd.DataFrame({
-    "Holiday": ["Republic Day", "Holi", "Independence Day", "Diwali", "Christmas"],
-    "Date": ["2025-01-26", "2025-03-14", "2025-08-15", "2025-10-20", "2025-12-25"]
-})
-holidays["Date"] = pd.to_datetime(holidays["Date"])
-st.table(holidays)
-
-# Weather Visualization using Visual Crossing
-st.subheader("🌦️ Weather Data for Selected States (Visual Impact)")
-
-def fetch_weather_data(location, start_date, end_date):
-    api_key = "62P5KGYJGJNFJ8GLF3JY4YY7W"
-    url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{location}/{start_date}/{end_date}?key={api_key}&unitGroup=metric&include=days"
-    response = requests.get(url)
-    if response.status_code == 200:
+# ------------------------------------
+# 📅 Show Holidays (India)
+# ------------------------------------
+@st.cache_data
+def fetch_indian_holidays():
+    url = "https://date.nager.at/api/v3/PublicHolidays/2021/IN"
+    try:
+        response = requests.get(url)
         data = response.json()
-        df_weather = pd.DataFrame(data["days"])
-        df_weather["datetime"] = pd.to_datetime(df_weather["datetime"])
-        return df_weather[["datetime", "temp", "humidity", "precip"]]
-    else:
-        st.error("Weather data fetch failed.")
+        return pd.DataFrame(data)
+    except:
         return pd.DataFrame()
 
-# Show weather only if states are selected
-today = datetime.date.today()
-week_ago = today - datetime.timedelta(days=7)
-for state in selected_states[:2]:  # Show weather for up to two states
-    st.markdown(f"**Weather Trends in {state} (Last 7 Days)**")
-    weather_df = fetch_weather_data(state, str(week_ago), str(today))
-    if not weather_df.empty:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.plot(weather_df["datetime"], weather_df["temp"], marker='o', label="Temp (°C)")
-        ax.plot(weather_df["datetime"], weather_df["humidity"], marker='s', label="Humidity (%)")
-        ax.set_ylabel("Value")
-        ax.set_xlabel("Date")
-        ax.legend()
-        st.pyplot(fig)
+holidays_df = fetch_indian_holidays()
+holidays_df["date"] = pd.to_datetime(holidays_df["date"])
+holidays_df = holidays_df[holidays_df["date"] >= pd.to_datetime(start_date)]
+holidays_df = holidays_df[holidays_df["date"] <= pd.to_datetime(end_date)]
 
-# Footer
+st.subheader("🎉 Public Holidays (India)")
+st.dataframe(holidays_df[["date", "localName", "name", "types"]].reset_index(drop=True))
+
+# ------------------------------------
+# 🌦️ Weather Data from Visual Crossing
+# ------------------------------------
+st.subheader(f"🌧️ Weather Forecast: {selected_weather_state} ({start_date} to {end_date})")
+
+@st.cache_data(show_spinner=False)
+def fetch_weather(state, start, end):
+    try:
+        url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{state}/{start}/{end}?unitGroup=metric&key=62P5KGYJGJNFJ8GLF3JY4YY7W&contentType=json"
+        response = requests.get(url)
+        data = response.json()
+        daily_data = data["days"]
+        return pd.DataFrame(daily_data)
+    except:
+        return pd.DataFrame()
+
+weather_df = fetch_weather(selected_weather_state, start_date, end_date)
+
+if not weather_df.empty:
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(weather_df["datetime"], weather_df["tempmax"], label="Max Temp (°C)", marker='o')
+    ax.plot(weather_df["datetime"], weather_df["tempmin"], label="Min Temp (°C)", marker='o')
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Temperature (°C)")
+    ax.set_title(f"Temperature Trend in {selected_weather_state}")
+    ax.legend()
+    st.pyplot(fig)
+else:
+    st.warning("Failed to fetch weather data.")
+
+# ------------------------------------
+# 📌 Footer
+# ------------------------------------
 st.markdown("---")
-st.markdown("👨‍💻 Made by **Tushar Panwar**, **Garvit Bansal** under the guidance of **Dr. Asnath Vincty**.")
+st.markdown("Developed by **Tushar Panwar**, **Garvit Bansal** under the guidance of **Dr. Asnath Vincty**.")
