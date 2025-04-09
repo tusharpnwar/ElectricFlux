@@ -1,0 +1,12 @@
+streamlit
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+tensorflow
+keras
+holidays
+workalendar
+joblib
+requests
