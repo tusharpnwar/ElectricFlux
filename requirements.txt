@@ -10,3 +10,4 @@ holidays
 workalendar
 joblib
 requests
+plotly
