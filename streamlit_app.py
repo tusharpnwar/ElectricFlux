@@ -13,7 +13,6 @@ from tensorflow.keras.layers import LSTM, Dropout, Dense, Input
 import tensorflow as tf
 from datetime import datetime as dt, timedelta
 
-
 st.set_page_config(page_title="🔋 Electricity Insights", layout="wide")
 st.title("🔋 Electricity Insights Dashboard")
 st.markdown("Powered by **CEA API**, **Visual Crossing Weather**, and **LSTM Demand Forecasting**")
@@ -189,7 +188,7 @@ with tab2:
         model.compile(loss=lambda y_true, y_pred: tf.math.sqrt(tf.reduce_mean(tf.square(y_true - y_pred))), optimizer="adam")
         return model
 
-    uploaded_file = st.sidebar.file_uploader("📤 Upload CSV File for LSTM Forecast", type=["csv"])
+    uploaded_file = st.sidebar.file_uploader("📄 Upload CSV File for LSTM Forecast", type=["csv"])
 
     if uploaded_file:
         df = load_data(uploaded_file)
@@ -245,6 +244,6 @@ with tab2:
         ax3.plot(hold_out_plot.index, hold_out_plot["tsd"], label="Actual")
         ax3.plot(hold_out_plot.index, hold_out_plot["Forecast"], label="Forecast")
         ax3.set_xlabel("Date")
-        ax3.set_ylabel("TSD")
+        ax3.set_ylabel("Electricity Demand")
         ax3.legend()
         st.pyplot(fig3)
