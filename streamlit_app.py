@@ -12,11 +12,9 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dropout, Dense, Input
 import tensorflow as tf
 from datetime import datetime as dt, timedelta
-import requests
 
 
 st.set_page_config(page_title="🔋 Electricity Insights", layout="wide")
-
 st.title("🔋 Electricity Insights Dashboard")
 st.markdown("Powered by **CEA API**, **Visual Crossing Weather**, and **LSTM Demand Forecasting**")
 
@@ -27,34 +25,30 @@ with tab1:
     st.header("📊 Per Capita Electricity Consumption + Weather")
 
     @st.cache_data
-def fetch_cea_data():
-    url = "https://api.yourdomain.com/endpoint"  # Replace with actual URL
-    try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
-        data = response.json()
+    def fetch_cea_data():
+        url = "https://api.yourdomain.com/endpoint"  # Replace with actual URL
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
 
-        # Optional: clean empty or invalid numeric values
-        for entry in data:
-            if entry.get("value") == "":
-                entry["value"] = None
-            else:
-                try:
-                    entry["value"] = float(entry["value"])
-                except ValueError:
+            for entry in data:
+                if entry.get("value") == "":
                     entry["value"] = None
+                else:
+                    try:
+                        entry["value"] = float(entry["value"])
+                    except ValueError:
+                        entry["value"] = None
 
-        return pd.DataFrame(data)
+            return pd.DataFrame(data)
 
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching data: {e}")
-        return pd.DataFrame()
-
-    except ValueError as e:
-        st.error(f"Invalid JSON response: {e}")
-        return pd.DataFrame()
-
-
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error fetching data: {e}")
+            return pd.DataFrame()
+        except ValueError as e:
+            st.error(f"Invalid JSON response: {e}")
+            return pd.DataFrame()
 
     df = fetch_cea_data()
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
@@ -249,11 +243,8 @@ with tab2:
         st.subheader("🔮 Forecast vs Actual")
         fig3, ax3 = plt.subplots(figsize=(12, 5))
         ax3.plot(hold_out_plot.index, hold_out_plot["tsd"], label="Actual")
-        ax3.plot(hold_out_plot.index, hold_out_plot["Forecast"], label="Forecast", alpha=0.7)
-        ax3.set_title("Actual vs Forecasted TSD")
+        ax3.plot(hold_out_plot.index, hold_out_plot["Forecast"], label="Forecast")
+        ax3.set_xlabel("Date")
+        ax3.set_ylabel("TSD")
         ax3.legend()
         st.pyplot(fig3)
-
-# Footer
-st.markdown("---")
-st.markdown("Created by **Tushar Panwar** & **Garvit Bansal** under the guidance of **Dr. Asnath Vincty**.")
