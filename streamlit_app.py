@@ -15,43 +15,58 @@ from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import requests
 from sklearn.linear_model import LinearRegression
 
+# Page settings
 st.set_page_config(page_title="⚡ Electricity Dashboard", layout="wide")
 sns.set_style("whitegrid")
 
+# Main title
 st.title("⚡ Electricity Forecasting & Consumption Dashboard")
 
-uploaded_file = st.sidebar.file_uploader("📁 Upload CSV for Load Forecasting", type=["csv"])
+# Summary
+st.markdown("""
+Welcome to the Electricity Dashboard!  
+This tool offers two main functionalities:
 
-# Sidebar default state/year selection (for both modes)
-@st.cache_data
-def fetch_cea_data():
-    url = "https://cea.nic.in/api/percapitalConsumtion.php"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return pd.DataFrame(response.json())
-    else:
-        st.error("Failed to fetch data from API.")
-        return pd.DataFrame()
+1. **Load Forecasting** using a preprocessed CSV file and an LSTM-based machine learning model.
+2. **Live Per Capita Electricity Consumption Analysis** using real-time data from the Central Electricity Authority (CEA) API.
 
-cea_df = fetch_cea_data()
-cea_df["value"] = pd.to_numeric(cea_df["value"], errors="coerce")
-cea_df = cea_df.dropna()
-cea_df = cea_df.rename(columns={"value": "PerCapitaConsumption"})
+Use this app to visualize energy patterns, generate forecasts, and make informed decisions for demand-side management, policy, and planning.
+""")
 
-def get_valid_states(df):
-    invalid_entries = {
-        "N R", "W R", "S R", "E R", "N E R", "All India",
-        "Jammu & Kashmir*", "Uttarakhand*"
-    }
-    return sorted({state.strip() for state in df["State"].unique() if state.strip() not in invalid_entries})
+# File upload in main area (not in sidebar)
+uploaded_file = st.file_uploader("📁 Upload CSV for Load Forecasting", type=["csv"], help="Upload your energy demand file to enable forecasting.")
 
-valid_states = get_valid_states(cea_df)
-years = sorted(cea_df["Year"].str[:4].dropna().astype(int).unique())
+# Sidebar (collapsible)
+with st.sidebar.expander("🔧 Filters (for CEA Dashboard)", expanded=True):
+    @st.cache_data
+    def fetch_cea_data():
+        url = "https://cea.nic.in/api/percapitalConsumtion.php"
+        response = requests.get(url)
+        if response.status_code == 200:
+            return pd.DataFrame(response.json())
+        else:
+            st.error("Failed to fetch data from API.")
+            return pd.DataFrame()
 
-selected_states = st.sidebar.multiselect("🗺️ Select States", valid_states, default=["Delhi", "Rajasthan"])
-selected_years = st.sidebar.slider("📅 Select Year Range", min_value=min(years), max_value=max(years), value=(2010, 2021))
+    cea_df = fetch_cea_data()
+    cea_df["value"] = pd.to_numeric(cea_df["value"], errors="coerce")
+    cea_df = cea_df.dropna()
+    cea_df = cea_df.rename(columns={"value": "PerCapitaConsumption"})
 
-# COMMON DATE FEATURE FUNCTION
+    def get_valid_states(df):
+        invalid_entries = {
+            "N R", "W R", "S R", "E R", "N E R", "All India",
+            "Jammu & Kashmir*", "Uttarakhand*"
+        }
+        return sorted({state.strip() for state in df["State"].unique() if state.strip() not in invalid_entries})
+
+    valid_states = get_valid_states(cea_df)
+    years = sorted(cea_df["Year"].str[:4].dropna().astype(int).unique())
+
+    selected_states = st.multiselect("🗺️ Select States", valid_states, default=["Delhi", "Rajasthan"])
+    selected_years = st.slider("📅 Select Year Range", min_value=min(years), max_value=max(years), value=(2010, 2021))
+
+# Utility functions (unchanged)
 @st.cache_data
 def create_features(df):
     df["day_of_month"] = df.index.day
@@ -106,7 +121,7 @@ def train_lstm(X_train, y_train, X_val, y_val, features):
     )
     return model, history
 
-# ------------------------- MODE: CSV UPLOADED -------------------------
+# -------------------- CSV UPLOADED: LSTM Mode --------------------
 if uploaded_file:
     st.markdown("### 📊 Load Forecasting using LSTM")
 
@@ -180,7 +195,7 @@ if uploaded_file:
         csv = csv_download.to_csv(index=False).encode("utf-8")
         st.download_button("📥 Download Predictions as CSV", data=csv, file_name="predictions.csv")
 
-# ------------------------- MODE: NO CSV => API DASHBOARD -------------------------
+# -------------------- No CSV: Show CEA API Dashboard --------------------
 else:
     st.markdown("### 📊 Per Capita Electricity Consumption (India)")
     st.markdown("Live data from [CEA API](https://cea.nic.in/api/percapitalConsumtion.php)")
