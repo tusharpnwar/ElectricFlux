@@ -12,6 +12,8 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dropout, Dense, Input
 import tensorflow as tf
 from datetime import datetime as dt, timedelta
+import requests
+
 
 st.set_page_config(page_title="🔋 Electricity Insights", layout="wide")
 
@@ -25,10 +27,6 @@ with tab1:
     st.header("📊 Per Capita Electricity Consumption + Weather")
 
     @st.cache_data
-    import requests
-import pandas as pd
-
-@st.cache_data
 def fetch_cea_data():
     url = "https://api.yourdomain.com/endpoint"  # Replace with actual URL
     try:
@@ -55,6 +53,8 @@ def fetch_cea_data():
     except ValueError as e:
         st.error(f"Invalid JSON response: {e}")
         return pd.DataFrame()
+
+
 
     df = fetch_cea_data()
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
