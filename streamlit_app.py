@@ -25,14 +25,36 @@ with tab1:
     st.header("📊 Per Capita Electricity Consumption + Weather")
 
     @st.cache_data
-    def fetch_cea_data():
-        url = "https://cea.nic.in/api/percapitalConsumtion.php"
+    import requests
+import pandas as pd
+
+@st.cache_data
+def fetch_cea_data():
+    url = "https://api.yourdomain.com/endpoint"  # Replace with actual URL
+    try:
         response = requests.get(url)
-        if response.status_code == 200:
-            return pd.DataFrame(response.json())
-        else:
-            st.error("Failed to fetch electricity data.")
-            return pd.DataFrame()
+        response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
+        data = response.json()
+
+        # Optional: clean empty or invalid numeric values
+        for entry in data:
+            if entry.get("value") == "":
+                entry["value"] = None
+            else:
+                try:
+                    entry["value"] = float(entry["value"])
+                except ValueError:
+                    entry["value"] = None
+
+        return pd.DataFrame(data)
+
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error fetching data: {e}")
+        return pd.DataFrame()
+
+    except ValueError as e:
+        st.error(f"Invalid JSON response: {e}")
+        return pd.DataFrame()
 
     df = fetch_cea_data()
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
