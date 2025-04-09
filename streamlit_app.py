@@ -1,150 +1,237 @@
 import streamlit as st
+import requests
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 import datetime
 import holidays
-import numpy as np
-import tensorflow as tf
-from keras.models import Sequential
-from keras.layers import LSTM, Dropout, Dense, Input
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error
-from keras.callbacks import EarlyStopping, ReduceLROnPlateau
-import seaborn as sns
-import matplotlib.pyplot as plt
-from time import sleep
+from sklearn.linear_model import LinearRegression
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dropout, Dense, Input
+import tensorflow as tf
+from datetime import datetime as dt, timedelta
 
-# App Title
-st.set_page_config(page_title="🔌 Energy Forecasting Dashboard", layout="wide")
-st.title("🔌 Energy Forecasting Dashboard")
-st.subheader("🔍 Explore & Predict Demand")
+st.set_page_config(page_title="🔋 Electricity Insights", layout="wide")
 
-# Summary about the project
-st.markdown("""
-### 📖 Project Summary
-This Energy Forecasting Dashboard is designed to predict electricity demand based on historical data. Using a deep learning model (LSTM), the app forecasts energy consumption based on various features, including holidays, time of the day, and past electricity demand.
+st.title("🔋 Electricity Insights Dashboard")
+st.markdown("Powered by **CEA API**, **Visual Crossing Weather**, and **LSTM Demand Forecasting**")
 
-Key features of the app:
-- **Data Upload**: Upload your CSV file containing historical energy demand data.
-- **Model Training**: The app preprocesses the data, trains an LSTM model, and visualizes the results.
-- **Prediction Output**: The predicted values are compared with actual values, and an RMSE metric is calculated to evaluate model performance.
+tab1, tab2 = st.tabs(["📈 Consumption & Weather", "🔮 LSTM Demand Forecast"])
 
-**How to use**:
-1. Upload your historical energy demand CSV file.
-2. Choose the date range for analysis.
-3. Click the **Run Model** button to process and visualize the forecast results.
-""")
+# ========== Tab 1 ==========
+with tab1:
+    st.header("📊 Per Capita Electricity Consumption + Weather")
 
-# Sidebar: File upload and date input
-st.sidebar.markdown("### 📊 Select Input Mode:")
-input_mode = st.sidebar.radio("", ["Live API", "Upload CSV"])
+    @st.cache_data
+    def fetch_cea_data():
+        url = "https://cea.nic.in/api/percapitalConsumtion.php"
+        response = requests.get(url)
+        if response.status_code == 200:
+            return pd.DataFrame(response.json())
+        else:
+            st.error("Failed to fetch electricity data.")
+            return pd.DataFrame()
 
-uploaded_file = None
-if input_mode == "Upload CSV":
-    uploaded_file = st.sidebar.file_uploader("📁 Upload your CSV file", type=["csv"])
+    df = fetch_cea_data()
+    df["value"] = pd.to_numeric(df["value"], errors="coerce")
+    df = df.dropna().rename(columns={"value": "PerCapitaConsumption"})
 
-# Date selection
-start_date = st.sidebar.date_input("📅 Start Date", datetime.date(2015, 1, 1))
-end_date = st.sidebar.date_input("📅 End Date", datetime.date(2024, 1, 15))
+    def get_valid_states(df):
+        invalid_entries = {"N R", "W R", "S R", "E R", "N E R", "All India", "Jammu & Kashmir*", "Uttarakhand*"}
+        return sorted({state.strip() for state in df["State"].unique() if state.strip() not in invalid_entries})
 
-if start_date > end_date:
-    st.error("❗ End date must be after start date.")
-    st.stop()
+    states = get_valid_states(df)
+    years = sorted(df["Year"].unique())
+    df["YearNum"] = df["Year"].str[:4].astype(int)
 
-# Button to run the uploaded file
-if uploaded_file:
-    run_button = st.sidebar.button("Run Model")
+    selected_states = st.sidebar.multiselect("Select States", states, default=["Delhi", "Rajasthan"])
+    selected_years = st.sidebar.slider("Select Year Range", min_value=int(years[0][:4]), max_value=int(years[-1][:4]), value=(2010, 2021))
 
-    if run_button:
-        # Animation while the model is being processed
-        with st.spinner("Processing data and training model... This may take a while..."):
-            sleep(2)  # Simulate some processing time
+    filtered_df = df[(df["YearNum"] >= selected_years[0]) & (df["YearNum"] <= selected_years[1])]
+    filtered_df = filtered_df[filtered_df["State"].isin(selected_states)]
 
-            # ----- DATA PREPROCESSING -----
-            df = pd.read_csv(uploaded_file, parse_dates=True)
-            df.columns = df.columns.str.lower()
-            df.drop(columns=["nsl_flow", "eleclink_flow"], axis=1, inplace=True)
-            df = df[df["settlement_period"] <= 48]
-            df["settlement_date"] = pd.to_datetime(df["settlement_date"])
+    st.subheader("🌦️ 7-Day Weather Forecast")
+    today = dt.now().strftime("%Y-%m-%d")
+    next_week = (dt.now() + timedelta(days=6)).strftime("%Y-%m-%d")
 
-            # Add time-based features
-            df["day_of_month"] = df["settlement_date"].dt.day
-            df["day_of_week"] = df["settlement_date"].dt.dayofweek
-            df["month"] = df["settlement_date"].dt.month
-            df["year"] = df["settlement_date"].dt.year
+    for state in selected_states:
+        weather_url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{state}/{today}/{next_week}?key=62P5KGYJGJNFJ8GLF3JY4YY7W&unitGroup=metric&include=days"
+        weather_response = requests.get(weather_url)
 
-            # Add holiday feature (using Tamil Nadu holidays as an example)
-            india_holidays = holidays.India(subdiv="TN", years=range(start_date.year, end_date.year + 1))
-            holiday_dates = [date for date, _ in india_holidays.items()]
-            df["is_holiday"] = df["settlement_date"].apply(lambda x: 1 if x in holiday_dates else 0)
+        if weather_response.status_code == 200:
+            data = weather_response.json()
+            forecast_df = pd.DataFrame(data["days"])[["datetime", "tempmax", "tempmin", "description"]]
+            st.markdown(f"**📍 {state}**")
+            st.dataframe(forecast_df.rename(columns={
+                "datetime": "Date",
+                "tempmax": "Max Temp (°C)",
+                "tempmin": "Min Temp (°C)",
+                "description": "Forecast"
+            }))
+        else:
+            st.warning(f"Failed to fetch weather data for {state}")
 
-            # Set datetime as index
-            df.set_index("settlement_date", inplace=True)
-            df.sort_index(inplace=True)
+    st.subheader("📈 Per Capita Electricity Consumption Over Time")
+    fig, ax = plt.subplots(figsize=(10, 5))
+    for state in selected_states:
+        state_data = filtered_df[filtered_df["State"] == state]
+        ax.plot(state_data["YearNum"], state_data["PerCapitaConsumption"], marker='o', label=state)
+    ax.set_xlabel("Year")
+    ax.set_ylabel("Per Capita Consumption (kWh)")
+    ax.set_title("Electricity Consumption Over Years")
+    ax.legend()
+    ax.grid(True)
+    st.pyplot(fig)
 
-            # ----- MODEL TRAINING -----
-            threshold_date = "06-01-2019"
-            train_data = df[df.index < threshold_date]
-            test_data = df[df.index >= threshold_date]
+    st.subheader("🔮 Linear Forecast for Next 5 Years")
+    future_years = np.array(range(selected_years[1] + 1, selected_years[1] + 6)).reshape(-1, 1)
+    for state in selected_states:
+        state_df = filtered_df[filtered_df["State"] == state]
+        X = state_df["YearNum"].values.reshape(-1, 1)
+        y = state_df["PerCapitaConsumption"].values
 
-            FEATURES = ["is_holiday", "settlement_period", "day_of_month", "day_of_week", "month", "year"]
-            TARGET = "tsd"
-            X_train = train_data[FEATURES].values
-            y_train = train_data[TARGET].values
-            X_test = test_data[FEATURES].values
-            y_test = test_data[TARGET].values
+        st.markdown(f"**{state} Forecast:**")
+        if len(X) > 1:
+            model = LinearRegression()
+            model.fit(X, y)
+            preds = model.predict(future_years)
 
-            # Scale the features
-            scaler = MinMaxScaler(feature_range=(0, 1))
-            X_train_scaled = scaler.fit_transform(X_train)
-            X_test_scaled = scaler.transform(X_test)
+            forecast_df = pd.DataFrame({
+                "Year": future_years.flatten(),
+                "Forecasted Consumption": preds
+            })
+            st.dataframe(forecast_df.set_index("Year").style.format("{:.2f} kWh"))
+        else:
+            st.warning(f"Not enough data to forecast for {state}")
 
-            # Reshape input for LSTM
-            X_train_scaled = X_train_scaled.reshape(X_train_scaled.shape[0], 1, X_train_scaled.shape[1])
-            X_test_scaled = X_test_scaled.reshape(X_test_scaled.shape[0], 1, X_test_scaled.shape[1])
+# ========== Tab 2 ==========
+with tab2:
+    st.header("⚡ Electricity Demand Forecast using LSTM")
 
-            # Define and compile LSTM model
-            model = Sequential()
-            model.add(Input(shape=(X_train_scaled.shape[1], X_train_scaled.shape[2])))
-            model.add(LSTM(256, return_sequences=True))
-            model.add(Dropout(0.5))
-            model.add(LSTM(128, return_sequences=True))
-            model.add(Dropout(0.5))
-            model.add(LSTM(32))
-            model.add(Dropout(0.5))
-            model.add(Dense(1))
-            model.compile(loss='mean_squared_error', optimizer="adam")
+    @st.cache_data
+    def load_data(file):
+        df = pd.read_csv(file, index_col=0)
+        df.columns = df.columns.str.lower()
+        df.sort_values(by=["settlement_date", "settlement_period"], inplace=True, ignore_index=True)
+        df.drop(columns=["nsl_flow", "eleclink_flow"], axis=1, inplace=True, errors='ignore')
+        df.drop(index=df[df["settlement_period"] > 48].index, inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        return df
 
-            # Train the model
-            model.fit(X_train_scaled, y_train, epochs=3, batch_size=32, validation_data=(X_test_scaled, y_test), verbose=1)
+    def add_holidays(df):
+        holiday_dates_observed = [
+            np.datetime64(date) for date, name in sorted(
+                holidays.India(subdiv="TN", years=range(2009, 2024), observed=True).items()
+            ) if "Observed" not in name
+        ]
+        df["is_holiday"] = df["settlement_date"].apply(lambda x: pd.to_datetime(x) in holiday_dates_observed).astype(int)
+        return df
 
-            # ----- EVALUATE THE MODEL -----
-            pred_lstm = model.predict(X_test_scaled)
-            rmse_lstm = np.sqrt(mean_squared_error(y_test, pred_lstm))
+    def clean_and_engineer(df):
+        null_days = df.loc[df["tsd"] == 0.0, "settlement_date"].unique().tolist()
+        df.drop(index=df[df["settlement_date"].isin(null_days)].index, inplace=True)
+        df.reset_index(drop=True, inplace=True)
 
-            # Visualize Loss
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.plot(range(1, len(model.history.history["loss"]) + 1), model.history.history["loss"], label="Training Loss")
-            ax.plot(range(1, len(model.history.history["val_loss"]) + 1), model.history.history["val_loss"], label="Validation Loss")
-            ax.set_xlabel("Epoch")
-            ax.set_ylabel("Loss")
-            ax.set_title("Model Loss")
-            ax.legend()
-            st.pyplot(fig)
+        df["period_hour"] = df["settlement_period"].apply(lambda x: str(datetime.timedelta(hours=(x - 1) * 0.5)))
+        df.loc[df["period_hour"] == "1 day, 0:00:00", "period_hour"] = "0:00:00"
+        df.insert(2, "period_hour", df.pop("period_hour"))
 
-            # Visualize Prediction vs Actual
-            result_frame = test_data[[TARGET]].copy()
-            result_frame["pred_lstm"] = pred_lstm
-            fig, ax = plt.subplots(figsize=(15, 5))
-            ax.plot(result_frame.index, result_frame[TARGET], label="Actual", color='blue')
-            ax.plot(result_frame.index, result_frame["pred_lstm"], label="Prediction", color='red')
-            ax.set_title(f"LSTM Prediction vs Actual (RMSE: {rmse_lstm:.2f} MW)")
-            ax.set_ylabel("Energy Demand (MW)")
-            ax.set_xlabel("Date")
-            ax.legend()
-            st.pyplot(fig)
+        df["settlement_date"] = pd.to_datetime(df["settlement_date"] + " " + df["period_hour"])
+        df.set_index("settlement_date", inplace=True)
+        df.sort_index(inplace=True)
 
-            # Display RMSE value
-            st.write(f"Root Mean Squared Error (RMSE): {rmse_lstm:.2f} MW")
+        df["day_of_month"] = df.index.day
+        df["day_of_week"] = df.index.day_of_week
+        df["day_of_year"] = df.index.day_of_year
+        df["quarter"] = df.index.quarter
+        df["month"] = df.index.month
+        df["year"] = df.index.year
+        df["week_of_year"] = df.index.isocalendar().week.astype("int64")
 
-        # Show success message after completion
-        st.success("Model has been successfully processed!")
+        return df
+
+    def scale_data(df, features, target):
+        full_data = df[features + [target]]
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        scaled = scaler.fit_transform(full_data.values)
+        X = scaled[:, :-1].reshape(scaled.shape[0], 1, len(features))
+        y = scaled[:, -1]
+        return X, y, scaler
+
+    def build_model(input_shape):
+        model = Sequential()
+        model.add(Input(shape=input_shape))
+        model.add(LSTM(256, return_sequences=True))
+        model.add(Dropout(0.5))
+        model.add(LSTM(128, return_sequences=True))
+        model.add(Dropout(0.5))
+        model.add(LSTM(32))
+        model.add(Dropout(0.5))
+        model.add(Dense(1))
+        model.compile(loss=lambda y_true, y_pred: tf.math.sqrt(tf.reduce_mean(tf.square(y_true - y_pred))), optimizer="adam")
+        return model
+
+    uploaded_file = st.sidebar.file_uploader("📤 Upload CSV File for LSTM Forecast", type=["csv"])
+
+    if uploaded_file:
+        df = load_data(uploaded_file)
+        st.subheader("📊 Sample of Cleaned Dataset")
+        st.write(df.sample(5))
+
+        df = add_holidays(df)
+        df = clean_and_engineer(df)
+
+        st.subheader("📈 EDA: Distribution by Month")
+        fig1, ax1 = plt.subplots(figsize=(12, 4))
+        sns.boxplot(x="month", y="tsd", data=df, ax=ax1)
+        st.pyplot(fig1)
+
+        st.subheader("⚙️ Training Model")
+        train_data = df[df.index < "2019-06-01"]
+        test_data = df[(df.index >= "2019-06-01") & (df.index < "2024-06-01")]
+        hold_out_data = df[df.index >= "2024-06-01"]
+
+        features = [
+            "is_holiday", "settlement_period", "day_of_month", "day_of_week",
+            "day_of_year", "quarter", "month", "year", "week_of_year"
+        ]
+        target = "tsd"
+
+        X_train, y_train, scaler = scale_data(train_data, features, target)
+        X_test, y_test, _ = scale_data(test_data, features, target)
+
+        model = build_model((X_train.shape[1], X_train.shape[2]))
+
+        with st.spinner("⏳ Training LSTM model..."):
+            history = model.fit(X_train, y_train, epochs=3, batch_size=64, validation_data=(X_test, y_test), verbose=1)
+        st.success("✅ Model trained!")
+
+        st.subheader("📉 Training & Validation Loss")
+        fig2, ax2 = plt.subplots()
+        ax2.plot(history.history["loss"], label="Training Loss")
+        ax2.plot(history.history["val_loss"], label="Validation Loss")
+        ax2.set_xlabel("Epoch")
+        ax2.set_ylabel("Loss (RMSE)")
+        ax2.legend()
+        st.pyplot(fig2)
+
+        X_hold_out, y_hold_out, _ = scale_data(hold_out_data, features, target)
+        preds_scaled = model.predict(X_hold_out)
+        preds = scaler.inverse_transform(np.concatenate([X_hold_out[:, 0], preds_scaled], axis=1))[:, -1]
+
+        hold_out_plot = hold_out_data.copy()
+        hold_out_plot["Forecast"] = preds
+
+        st.subheader("🔮 Forecast vs Actual")
+        fig3, ax3 = plt.subplots(figsize=(12, 5))
+        ax3.plot(hold_out_plot.index, hold_out_plot["tsd"], label="Actual")
+        ax3.plot(hold_out_plot.index, hold_out_plot["Forecast"], label="Forecast", alpha=0.7)
+        ax3.set_title("Actual vs Forecasted TSD")
+        ax3.legend()
+        st.pyplot(fig3)
+
+# Footer
+st.markdown("---")
+st.markdown("Created by **Tushar Panwar** & **Garvit Bansal** under the guidance of **Dr. Asnath Vincty**.")
