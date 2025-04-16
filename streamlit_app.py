@@ -82,7 +82,7 @@ with tab1:
     df["YearNum"] = df["Year"].str[:4].astype(int)
 
     selected_states = st.sidebar.multiselect("Select States", states, default=["Delhi", "Rajasthan"])
-    selected_years = st.sidebar.slider("Select Year Range", min_value=int(years[0][:4]), max_value=int(years[-1][:4]), value=(2010, 2021))
+    selected_years = st.sidebar.slider("Select Year Range", min_value=int(years[0][:4]), max_value=int(years[-1][:4]), value=(2010, 2024))
 
     filtered_df = df[(df["YearNum"] >= selected_years[0]) & (df["YearNum"] <= selected_years[1])]
     filtered_df = filtered_df[filtered_df["State"].isin(selected_states)]
