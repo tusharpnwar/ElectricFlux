@@ -119,25 +119,38 @@ with tab1:
     ax.legend()
     ax.grid(True)
     st.pyplot(fig)
-
-    st.subheader("🔮 Linear Forecast for Next 5 Years")
-    future_years = np.array(range(selected_years[1] + 1, selected_years[1] + 6)).reshape(-1, 1)
+    # ========== Linear Forecast for Next 5 Days ========== 
+    st.subheader("🔮 Linear Forecast for Next 5 Days")
+    # Get today's date
+    today = dt.today()
+    
+    # Calculate the next 5 days
+    next_5_days = [today + timedelta(days=i) for i in range(1, 6)]
+    
+    # Format the next 5 days to just show the date (year-month-day)
+    future_dates = [date.strftime("%Y-%m-%d") for date in next_5_days]
+    future_dates = np.array(future_dates).reshape(-1, 1)
+    
     for state in selected_states:
         state_df = filtered_df[filtered_df["State"] == state]
-        X = state_df["YearNum"].values.reshape(-1, 1)
-        y = state_df["PerCapitaConsumption"].values
-
-        st.markdown(f"**{state} Forecast:**")
+        X = state_df["YearNum"].values.reshape(-1, 1)  # Existing years data
+        y = state_df["PerCapitaConsumption"].values   # Per capita consumption data
+    
+        st.markdown(f"**{state} Forecast for Next 5 Days:**")
+        
         if len(X) > 1:
             model = LinearRegression()
             model.fit(X, y)
-            preds = model.predict(future_years)
-
+            preds = model.predict(np.arange(len(future_dates)).reshape(-1, 1))  # Predict for the next 5 days
+    
+            # Combine the future dates and predicted values into a DataFrame
             forecast_df = pd.DataFrame({
-                "Year": future_years.flatten(),
+                "Date": future_dates.flatten(),
                 "Forecasted Consumption": preds
             })
-            st.dataframe(forecast_df.set_index("Year").style.format("{:.2f} kWh"))
+            
+            # Show the forecast in the UI
+            st.dataframe(forecast_df.set_index("Date").style.format("{:.2f} kWh"))
         else:
             st.warning(f"Not enough data to forecast for {state}")
 
