@@ -1,4 +1,3 @@
-```
 # Electricity Insights Dashboard
 
 ## Overview
