@@ -34,7 +34,6 @@ st.sidebar.markdown("""
     - **📈 Consumption & Weather:** Explore historical data on per capita electricity consumption and weather forecasts for selected states.
     - **🔮 LSTM Demand Forecast:** Use Long Short-Term Memory (LSTM) to forecast future electricity demand based on past data.
 
-    
 """)
 
 tab1, tab2 = st.tabs(["📈 Consumption & Weather", "🔮 LSTM Demand Forecast"])
@@ -119,15 +118,11 @@ with tab1:
     ax.legend()
     ax.grid(True)
     st.pyplot(fig)
+
     # ========== Linear Forecast for Next 5 Days ========== 
     st.subheader("🔮 Linear Forecast for Next 5 Days")
-    # Get today's date
     today = dt.today()
-    
-    # Calculate the next 5 days
     next_5_days = [today + timedelta(days=i) for i in range(1, 6)]
-    
-    # Format the next 5 days to just show the date (year-month-day)
     future_dates = [date.strftime("%Y-%m-%d") for date in next_5_days]
     future_dates = np.array(future_dates).reshape(-1, 1)
     
@@ -208,18 +203,17 @@ with tab2:
         y = scaled[:, -1]
         return X, y, scaler
 
-   
     def build_model(input_shape):
         model = Sequential()
         model.add(Input(shape=input_shape))
-        model.add(LSTM(128, return_sequences=True))  # Reduced LSTM units
-        model.add(Dropout(0.5))
-        model.add(LSTM(64))  # Reduced LSTM units
-        model.add(Dropout(0.5))
+        model.add(LSTM(64, return_sequences=True))  # Reduced LSTM units
+        model.add(Dropout(0.3))
+        model.add(LSTM(32))  # Reduced LSTM units
+        model.add(Dropout(0.3))
         model.add(Dense(1))
         model.compile(loss="mean_squared_error", optimizer="adam")
         return model
-    
+
     uploaded_file = st.sidebar.file_uploader("📄 Upload CSV File for LSTM Forecast", type=["csv"])
 
     if uploaded_file:
@@ -251,11 +245,11 @@ with tab2:
         model = build_model((X_train.shape[1], X_train.shape[2]))
 
         with st.spinner("⏳ Training LSTM model..."):
-            history = model.fit(X_train, y_train, epochs=2, batch_size=32, validation_data=(X_test, y_test), verbose=1)
+            history = model.fit(X_train, y_train, epochs=1, batch_size=32, validation_data=(X_test, y_test), verbose=1)
         st.success("✅ Model trained!")
 
         st.subheader("📉 Training & Validation Loss")
-        fig2, ax2 = plt.subplots()
+        fig2, ax2 = plt.subplots(figsize=(12, 6))
         ax2.plot(history.history["loss"], label="Training Loss")
         ax2.plot(history.history["val_loss"], label="Validation Loss")
         ax2.set_xlabel("Epoch")
