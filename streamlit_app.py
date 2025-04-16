@@ -32,8 +32,7 @@ st.markdown("""
 st.sidebar.markdown("""
     ## 📋 Dashboard
     - **📈 Consumption & Weather:** Explore historical data on per capita electricity consumption and weather forecasts for selected states.
-    - **🔮 LSTM Demand Forecast:** Use Long Short-Term Memory (LSTM) to forecast future electricity demand based on past data.
-
+  
 """)
 
 tab1, tab2 = st.tabs(["📈 Consumption & Weather", "🔮 LSTM Demand Forecast"])
@@ -214,7 +213,8 @@ with tab2:
         model.compile(loss="mean_squared_error", optimizer="adam")
         return model
 
-    uploaded_file = st.sidebar.file_uploader("📄 Upload CSV File for LSTM Forecast", type=["csv"])
+    uploaded_file = st.sidebar.file_uploader("  - **🔮 LSTM Demand Forecast:** Use Long Short-Term Memory (LSTM) to forecast future electricity demand based on past data.
+📄 Upload CSV File for LSTM Forecast", type=["csv"])
 
     if uploaded_file:
         df = load_data(uploaded_file)
