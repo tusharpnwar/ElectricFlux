@@ -34,15 +34,7 @@ st.sidebar.markdown("""
     - **📈 Consumption & Weather:** Explore historical data on per capita electricity consumption and weather forecasts for selected states.
     - **🔮 LSTM Demand Forecast:** Use Long Short-Term Memory (LSTM) to forecast future electricity demand based on past data.
 
-    ## 👨‍💻 Developed By
-    - **Tushar Panwar (21BCE1074)**
-    - **Garvit Bansal (21BCE5773)**
-
-    ## 👩‍🏫 Guided By
-    - **Dr. Asnath Victy Phamila Y (50590)**
-
-    ---
-    This tool is designed to help analyze electricity consumption and forecast demand. Explore the insights and predictions!
+    
 """)
 
 tab1, tab2 = st.tabs(["📈 Consumption & Weather", "🔮 LSTM Demand Forecast"])
