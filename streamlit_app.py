@@ -13,7 +13,7 @@ from tensorflow.keras.layers import LSTM, Dropout, Dense, Input
 import tensorflow as tf
 from datetime import datetime as dt, timedelta
 
-st.set_page_config(page_title="🔋 Electricity Insights", layout="wide")
+st.set_page_config(page_title="🔋 Electricity Insights", layout="wide", initial_sidebar_state="collapsed")
 st.title("🔋 Electricity Insights Dashboard")
 st.markdown("Powered by **CEA API**, **Visual Crossing Weather**, and **LSTM Demand Forecasting**")
 
