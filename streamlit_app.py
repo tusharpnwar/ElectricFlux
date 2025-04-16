@@ -215,8 +215,8 @@ with tab2:
 
     uploaded_file = st.sidebar.file_uploader(""" 
     - **🔮 LSTM Demand Forecast:** Use Long Short-Term Memory (LSTM) to forecast future electricity demand based on past data.
-    
-    📄 Upload CSV File for LSTM Forecast""", type=["csv"])
+     📄 Upload CSV File for LSTM Forecast
+     """, type=["csv"])
 
     if uploaded_file:
         df = load_data(uploaded_file)
