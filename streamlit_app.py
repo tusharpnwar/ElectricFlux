@@ -30,7 +30,7 @@ st.markdown("""
 
 # ========== Sidebar Information ==========
 st.sidebar.markdown("""
-    ## 📋 Dashboard Overview
+    ## 📋 Dashboard
     - **📈 Consumption & Weather:** Explore historical data on per capita electricity consumption and weather forecasts for selected states.
     - **🔮 LSTM Demand Forecast:** Use Long Short-Term Memory (LSTM) to forecast future electricity demand based on past data.
 
