@@ -17,6 +17,34 @@ st.set_page_config(page_title="🔋 Electricity Insights", layout="wide")
 st.title("🔋 Electricity Insights Dashboard")
 st.markdown("Powered by **CEA API**, **Visual Crossing Weather**, and **LSTM Demand Forecasting**")
 
+# ========== Home Screen Welcome Message ==========
+st.markdown("""
+    ## Welcome to the Electricity Insights Dashboard!
+    This platform provides valuable insights into electricity consumption, weather forecasts, and demand prediction using advanced models. 
+
+    - **Consumption & Weather Analysis:** Track per capita electricity consumption and get weather forecasts.
+    - **Demand Forecasting:** Use LSTM-based models to forecast future electricity demand.
+
+    Explore the various sections to understand consumption patterns, forecast weather, and predict demand trends for the upcoming years!
+""")
+
+# ========== Sidebar Information ==========
+st.sidebar.markdown("""
+    ## 📋 Dashboard Overview
+    - **📈 Consumption & Weather:** Explore historical data on per capita electricity consumption and weather forecasts for selected states.
+    - **🔮 LSTM Demand Forecast:** Use Long Short-Term Memory (LSTM) to forecast future electricity demand based on past data.
+
+    ## 👨‍💻 Developed By
+    - **Tushar Panwar (21BCE1074)**
+    - **Garvit Bansal (21BCE5773)**
+
+    ## 👩‍🏫 Guided By
+    - **Dr. Asnath Victy Phamila Y (50590)**
+
+    ---
+    This tool is designed to help analyze electricity consumption and forecast demand. Explore the insights and predictions!
+""")
+
 tab1, tab2 = st.tabs(["📈 Consumption & Weather", "🔮 LSTM Demand Forecast"])
 
 # ========== Tab 1 ==========
@@ -230,3 +258,12 @@ with tab2:
         ax2.set_ylabel("Loss (RMSE)")
         ax2.legend()
         st.pyplot(fig2)
+
+# ========== Footer Section ==========
+st.markdown("""
+    ---
+    <div style="text-align: center; font-size: 12px; color: grey;">
+        Made by Tushar Panwar (21BCE1074) | Garvit Bansal (21BCE5773)<br>
+        Under the guidance of Dr. Asnath Victy Phamila Y (50590)
+    </div>
+""", unsafe_allow_html=True)
