@@ -146,7 +146,7 @@ with tab1:
             # Combine the future dates and predicted values into a DataFrame
             forecast_df = pd.DataFrame({
                 "Date": future_dates.flatten(),
-                "Forecasted Consumption": preds
+                "Forecasted Consumption": (-1)*preds
             })
             
             # Show the forecast in the UI
