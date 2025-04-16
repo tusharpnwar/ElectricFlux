@@ -208,19 +208,18 @@ with tab2:
         y = scaled[:, -1]
         return X, y, scaler
 
+   
     def build_model(input_shape):
         model = Sequential()
         model.add(Input(shape=input_shape))
-        model.add(LSTM(256, return_sequences=True))
+        model.add(LSTM(128, return_sequences=True))  # Reduced LSTM units
         model.add(Dropout(0.5))
-        model.add(LSTM(128, return_sequences=True))
-        model.add(Dropout(0.5))
-        model.add(LSTM(32))
+        model.add(LSTM(64))  # Reduced LSTM units
         model.add(Dropout(0.5))
         model.add(Dense(1))
-        model.compile(loss=lambda y_true, y_pred: tf.math.sqrt(tf.reduce_mean(tf.square(y_true - y_pred))), optimizer="adam")
+        model.compile(loss="mean_squared_error", optimizer="adam")
         return model
-
+    
     uploaded_file = st.sidebar.file_uploader("📄 Upload CSV File for LSTM Forecast", type=["csv"])
 
     if uploaded_file:
@@ -252,7 +251,7 @@ with tab2:
         model = build_model((X_train.shape[1], X_train.shape[2]))
 
         with st.spinner("⏳ Training LSTM model..."):
-            history = model.fit(X_train, y_train, epochs=3, batch_size=64, validation_data=(X_test, y_test), verbose=1)
+            history = model.fit(X_train, y_train, epochs=2, batch_size=32, validation_data=(X_test, y_test), verbose=1)
         st.success("✅ Model trained!")
 
         st.subheader("📉 Training & Validation Loss")
